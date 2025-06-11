@@ -11,6 +11,9 @@ from langchain.schema import Document
 from langchain_core.vectorstores.in_memory import InMemoryVectorStore
 from langchain_core.prompts import PromptTemplate
 from langchain.chat_models import ChatOpenAI
+from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain.vectorstores import InMemoryVectorStore
+
 
 # Configurar la clave de API de OpenAI
 os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
@@ -48,7 +51,7 @@ def process_pdf(file):
         pdf_reader = PdfReader(file)
         
         if len(pdf_reader.pages) == 0:
-            raise ValueError("El PDF no contiene páginas")
+            raise ValueError("El PDF no contiene componentes")
         
         raw_text = ""
         pages_processed = 0
@@ -85,7 +88,7 @@ def process_pdf(file):
 
         # Crear embeddings y almacén vectorial con manejo de errores
         try:
-            embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")  # Explicitly specify model
+            embeddings = OpenAIEmbeddings(model="text-embedding-ada-002", openai_api_key=st.secrets["OPENAI_API_KEY"])  # Explicitly specify model and API key
             document_search = InMemoryVectorStore.from_texts(texts, embeddings)
         except Exception as e:
             st.error(f"Error al crear embeddings: {str(e)}")
@@ -113,7 +116,8 @@ RESPUESTA:"""
         llm = ChatOpenAI(
             temperature=0.1,  # Reducida para respuestas más precisas
             model_name="gpt-3.5-turbo-16k",  # Modelo con mayor contexto
-            max_tokens=1000
+            max_tokens=1000,
+            openai_api_key=st.secrets["OPENAI_API_KEY"]  # Explicitly pass API key
         )
 
         # Configurar memoria del chat
@@ -139,7 +143,6 @@ RESPUESTA:"""
     except Exception as e:
         st.error(f"❌ Error al procesar el PDF: {str(e)}")
         return None
-
 
 # Sidebar para configuración
 with st.sidebar:
