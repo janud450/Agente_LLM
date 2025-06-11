@@ -34,61 +34,110 @@ if "processed_file" not in st.session_state:
     st.session_state.processed_file = None
 
 def process_pdf(file):
-    """Procesar el PDF y configurar los componentes de LangChain"""
+    """
+    Procesar el PDF y configurar los componentes de LangChain
+    
+    Args:
+        file: Archivo PDF cargado
+    
+    Returns:
+        ConversationalRetrievalChain o None si hay error
+    """
     try:
-        # Leer el PDF
+        # Leer el PDF con manejo de errores mejorado
         pdf_reader = PdfReader(file)
+        
+        if len(pdf_reader.pages) == 0:
+            raise ValueError("El PDF no contiene páginas")
+        
         raw_text = ""
-        for page in pdf_reader.pages:
-            content = page.extract_text()  # Extraer texto de cada página
-            if content:
-                raw_text += content
+        pages_processed = 0
+        
+        for i, page in enumerate(pdf_reader.pages):
+            try:
+                content = page.extract_text()
+                if content and content.strip():
+                    raw_text += content + "\n"
+                    pages_processed += 1
+            except Exception as e:
+                st.warning(f"No se pudo procesar la página {i+1}: {str(e)}")
+                continue
 
-        # Verificar si se extrajo texto
-        if not raw_text:
-            raise ValueError("No se pudo extraer texto del PDF")
+        # Verificar si se extrajo texto suficiente
+        if not raw_text or len(raw_text.strip()) < 100:
+            raise ValueError(f"Texto insuficiente extraído ({len(raw_text)} caracteres de {pages_processed} páginas)")
 
-        # Dividir el texto en fragmentos
+        st.info(f"✅ Procesadas {pages_processed} páginas, {len(raw_text)} caracteres extraídos")
+
+        # Dividir el texto con parámetros optimizados
         text_splitter = CharacterTextSplitter(
-            separator="\n",  # Separador de líneas
-            chunk_size=800,  # Tamaño máximo de fragmentos
-            chunk_overlap=200,  # Solapamiento entre fragmentos
-            length_function=len,  # Función para medir longitud
+            separator="\n",
+            chunk_size=1000,  # Aumentado para mejor contexto
+            chunk_overlap=200,
+            length_function=len,
         )
         texts = text_splitter.split_text(raw_text)
+        
+        if not texts:
+            raise ValueError("No se pudieron crear fragmentos de texto")
+        
+        st.info(f"📄 Creados {len(texts)} fragmentos de texto")
 
-        # Crear embeddings y almacén vectorial
-        embeddings = OpenAIEmbeddings(model="text-embedding-ada-002")  # Explicitly specify model, no proxies
-        document_search = FAISS.from_texts(texts, embeddings)  # Usar FAISS para mejor rendimiento
+        # Crear embeddings y almacén vectorial con manejo de errores
+        try:
+            embeddings = OpenAIEmbeddings()
+            document_search = InMemoryVectorStore.from_texts(texts, embeddings)
+        except Exception as e:
+            st.error(f"Error al crear embeddings: {str(e)}")
+            raise
 
-        # Definir rol y plantilla de prompt
-        role_description = (
-            "Eres un asistente de IA especializado en análisis de la regulación del mercado "
-            "de energía en Colombia. Proporciona respuestas precisas y detalladas basadas en el documento proporcionado."
+        # Plantilla de prompt mejorada
+        role_description = """Eres un asistente especializado en análisis de documentos de regulación energética en Colombia.
+
+INSTRUCCIONES:
+- Proporciona respuestas precisas basadas únicamente en el documento cargado
+- Si la información no está en el documento, indícalo claramente
+- Usa un lenguaje técnico pero comprensible
+- Incluye referencias específicas cuando sea posible
+- Si hay ambigüedad, solicita clarificación
+
+CONTEXTO DEL DOCUMENTO: {context}
+
+PREGUNTA: {question}
+
+RESPUESTA:"""
+
+        QA_CHAIN_PROMPT = PromptTemplate.from_template(role_description)
+
+        # Inicializar modelo con configuración optimizada
+        llm = ChatOpenAI(
+            temperature=0.1,  # Reducida para respuestas más precisas
+            model_name="gpt-3.5-turbo-16k",  # Modelo con mayor contexto
+            max_tokens=1000
         )
-        QA_CHAIN_PROMPT = PromptTemplate.from_template(
-            role_description + "\n\nPregunta: {question}\nContexto: {context}\nRespuesta:"
-        )
-
-        # Inicializar el modelo de lenguaje
-        llm = ChatOpenAI(temperature=0.3, model_name="gpt-3.5-turbo")
 
         # Configurar memoria del chat
         memory = ConversationBufferMemory(
             memory_key="chat_history",
-            return_messages=True
+            return_messages=True,
+            output_key="answer"
         )
 
         # Crear cadena conversacional
         qa_chain = ConversationalRetrievalChain.from_llm(
             llm=llm,
-            retriever=document_search.as_retriever(),
+            retriever=document_search.as_retriever(
+                search_kwargs={"k": 4}  # Aumentar contexto relevante
+            ),
             memory=memory,
-            combine_docs_chain_kwargs={"prompt": QA_CHAIN_PROMPT}
+            combine_docs_chain_kwargs={"prompt": QA_CHAIN_PROMPT},
+            return_source_documents=True  # Para mostrar fuentes
         )
+        
         return qa_chain
+        
     except Exception as e:
-        st.error(f"Error al procesar el PDF: {str(e)}")
+        st.error(f"❌ Error al procesar el PDF: {str(e)}")
         return None
 
 # Sidebar para configuración
