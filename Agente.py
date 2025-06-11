@@ -73,73 +73,7 @@ def process_pdf(file):
         text_splitter = CharacterTextSplitter(
             separator="\n",
             chunk_size=1000,  # Aumentado para mejor contexto
-            chunk_overlap=200,
-            length_function=len,
-        )
-        texts = text_splitter.split_text(raw_text)
-        
-        if not texts:
-            raise ValueError("No se pudieron crear fragmentos de texto")
-        
-        st.info(f"📄 Creados {len(texts)} fragmentos de texto")
-
-        # Crear embeddings y almacén vectorial con manejo de errores
-        try:
-            embeddings = OpenAIEmbeddings()
-            document_search = InMemoryVectorStore.from_texts(texts, embeddings)
-        except Exception as e:
-            st.error(f"Error al crear embeddings: {str(e)}")
-            raise
-
-        # Plantilla de prompt mejorada
-        role_description = """Eres un asistente especializado en análisis de documentos de regulación energética en Colombia.
-
-INSTRUCCIONES:
-- Proporciona respuestas precisas basadas únicamente en el documento cargado
-- Si la información no está en el documento, indícalo claramente
-- Usa un lenguaje técnico pero comprensible
-- Incluye referencias específicas cuando sea posible
-- Si hay ambigüedad, solicita clarificación
-
-CONTEXTO DEL DOCUMENTO: {context}
-
-PREGUNTA: {question}
-
-RESPUESTA:"""
-
-        QA_CHAIN_PROMPT = PromptTemplate.from_template(role_description)
-
-        # Inicializar modelo con configuración optimizada
-        llm = ChatOpenAI(
-            temperature=0.1,  # Reducida para respuestas más precisas
-            model_name="gpt-3.5-turbo-16k",  # Modelo con mayor contexto
-            max_tokens=1000
-        )
-
-        # Configurar memoria del chat
-        memory = ConversationBufferMemory(
-            memory_key="chat_history",
-            return_messages=True,
-            output_key="answer"
-        )
-
-        # Crear cadena conversacional
-        qa_chain = ConversationalRetrievalChain.from_llm(
-            llm=llm,
-            retriever=document_search.as_retriever(
-                search_kwargs={"k": 4}  # Aumentar contexto relevante
-            ),
-            memory=memory,
-            combine_docs_chain_kwargs={"prompt": QA_CHAIN_PROMPT},
-            return_source_documents=True  # Para mostrar fuentes
-        )
-        
-        return qa_chain
-        
-    except Exception as e:
-        st.error(f"❌ Error al procesar el PDF: {str(e)}")
-        return None
-
+            chunk_overlap=200
 # Sidebar para configuración
 with st.sidebar:
     st.header("📋 Configuración")
