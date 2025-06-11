@@ -13,6 +13,8 @@ from langchain_core.prompts import PromptTemplate
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.vectorstores import InMemoryVectorStore
+from langchain_community.chat_message_histories import StreamlitChatMessageHistory
+from langchain_core.messages import AIMessage, HumanMessage # You might also need these
 
 
 # Configurar la clave de API de OpenAI
@@ -88,8 +90,10 @@ def process_pdf(file):
 
         # Crear embeddings y almacén vectorial con manejo de errores
         try:
-            embeddings = OpenAIEmbeddings()  # Explicitly specify model and API key
-            document_search = InMemoryVectorStore.from_texts(texts, embeddings)
+            embeddings = OpenAIEmbeddings()
+            # Use FAISS.from_texts instead of InMemoryVectorStore.from_texts
+            document_search = FAISS.from_texts(texts, embeddings) 
+            st.success("Embeddings and vector store created successfully!")
         except Exception as e:
             st.error(f"Error al crear embeddings: {str(e)}")
             raise
