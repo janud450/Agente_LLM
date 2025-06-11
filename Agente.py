@@ -8,7 +8,6 @@ from langchain.vectorstores import FAISS
 from langchain.chains import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
 from langchain.schema import Document
-from langchain_core.vectorstores.in_memory import InMemoryVectorStore
 from langchain_core.prompts import PromptTemplate
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings.openai import OpenAIEmbeddings
