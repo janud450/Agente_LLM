@@ -88,7 +88,7 @@ def process_pdf(file):
 
         # Crear embeddings y almacén vectorial con manejo de errores
         try:
-            embeddings = OpenAIEmbeddings(model="text-embedding-ada-002", openai_api_key=st.secrets["OPENAI_API_KEY"])  # Explicitly specify model and API key
+            embeddings = OpenAIEmbeddings()  # Explicitly specify model and API key
             document_search = InMemoryVectorStore.from_texts(texts, embeddings)
         except Exception as e:
             st.error(f"Error al crear embeddings: {str(e)}")
