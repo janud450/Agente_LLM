@@ -11,7 +11,6 @@ from langchain.schema import Document
 from langchain_core.prompts import PromptTemplate
 from langchain.chat_models import ChatOpenAI
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import InMemoryVectorStore
 from langchain_community.chat_message_histories import StreamlitChatMessageHistory
 from langchain_core.messages import AIMessage, HumanMessage # You might also need these
 
